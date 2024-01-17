@@ -46,6 +46,34 @@
 class TimsDataHandle;
 
 int tims_sql_callback(void* out, int cols, char** row, char** colnames);
+int tims_scaninfo_sql_callback(void* out, int cols, char** row, char** colnames);
+int tims_dia_sql_callback(void* out, int cols, char** row, char** colnames);
+int tims_dia_frame_sql_callback(void* out, int cols, char** row, char** colnames);
+class TimsDiaInfo
+{
+    TimsDiaInfo(uint32_t _id,
+        uint32_t _scan_num_begin,
+        uint32_t _scan_num_end,
+        double _isolation_mz,
+        double _isolation_width,
+        double _collision_energy,
+        TimsDataHandle& _parent_tdh
+        );
+    
+    static TimsDiaInfo TimsDiaInfoFromSql(char** sql_row,
+        TimsDataHandle& parent_handle);
+    TimsDataHandle& parent_tdh;
+
+public:
+    const uint32_t id;
+    const uint32_t scan_num_begin;
+    const uint32_t scan_num_end;
+    const double isolation_mz;
+    const double isolation_width;
+    const double collision_energy;
+
+    friend int tims_dia_sql_callback(void* out, int cols, char** row, char** colnames);
+};
 
 class TimsFrame
 {
@@ -73,6 +101,9 @@ class TimsFrame
 
     friend class TimsDataHandle;
     friend int tims_sql_callback(void* out, int cols, char** row, char** colnames);
+    friend int tims_scaninfo_sql_callback(void* out, int cols, char** row, char** colnames);
+    friend int tims_dia_sql_callback(void* out, int cols, char** row, char** colnames);
+    friend int tims_dia_frame_sql_callback(void* out, int cols, char** row, char** colnames);
 
     TimsDataHandle& parent_tdh;
 
@@ -117,6 +148,7 @@ public:
     const uint32_t msms_type;   ///< The MS/MS type of this frame
     const double intensity_correction;
     const double time;
+    uint32_t dia_group_id;
 
      //! \brief Prints out to stdout a short summary of this frame.
     void print() const;
@@ -195,6 +227,8 @@ private:
     const std::string tims_dir_path;
     mio::mmap_source tims_data_bin;
     std::unordered_map<uint32_t, TimsFrame> frame_descs;
+    std::unordered_map<uint32_t, std::vector<TimsDiaInfo>> dia_descs;
+
     void read_sql(const std::string& tims_tdf_path);
     uint32_t _min_frame_id;
     uint32_t _max_frame_id;
@@ -212,6 +246,10 @@ private:
     sqlite3* db_conn;
 #endif
 
+    double _mz_lower;
+    double _mz_upper;
+    double _one_over_k0_lower;
+    double _one_over_k0_upper;
 public:
     size_t get_decomp_buffer_size() const { return decomp_buffer_size; };
     std::unique_ptr<Tof2MzConverter> tof2mz_converter;
@@ -256,6 +294,8 @@ public:
 
     //! Access a dictionary containing all the frames from this dataset, keyed by ID.
     std::unordered_map<uint32_t, TimsFrame>& get_frame_descs();
+
+    std::unordered_map<uint32_t, std::vector<TimsDiaInfo>>& get_dia_descs();
 
     //! Returns the total number of MS peaks in this handle.
     size_t no_peaks_total() const;
@@ -448,6 +488,9 @@ public:
     void per_frame_TIC(uint32_t* result);
 
     friend int tims_sql_callback(void* out, int cols, char** row, char** colnames);
+    friend int tims_scaninfo_sql_callback(void* out, int cols, char** row, char** colnames);
+    friend int tims_dia_sql_callback(void* out, int cols, char** row, char** colnames);
+    friend int tims_dia_frame_sql_callback(void* out, int cols, char** row, char** colnames);
 
     friend class TimsFrame;
 };

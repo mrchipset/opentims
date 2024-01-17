@@ -45,6 +45,46 @@
 #include "scan2inv_ion_mobility_converter.h"
 #include "thread_mgr.h"
 
+
+TimsDiaInfo::TimsDiaInfo(uint32_t _id,
+                        uint32_t _scan_num_begin,
+                        uint32_t _scan_num_end,
+                        double _isolation_mz,
+                        double _isolation_width,
+                        double _collision_energy,
+                        TimsDataHandle& _parent_tdh
+                        ) 
+:
+    id(_id),
+    scan_num_begin(_scan_num_begin),
+    scan_num_end(_scan_num_end),
+    isolation_mz(_isolation_mz),
+    isolation_width(_isolation_width),
+    collision_energy(_collision_energy),
+    parent_tdh(_parent_tdh)
+{}
+
+TimsDiaInfo TimsDiaInfo::TimsDiaInfoFromSql(char** sql_row,
+                                        TimsDataHandle& parent_handle)
+{
+    assert(sql_row != nullptr);
+    assert(sql_row[0] != nullptr);
+    assert(sql_row[1] != nullptr);
+    assert(sql_row[2] != nullptr);
+    assert(sql_row[3] != nullptr);
+    assert(sql_row[4] != nullptr);
+    assert(sql_row[5] != nullptr);
+    return TimsDiaInfo(
+            atol(sql_row[0]),
+            atol(sql_row[1]),
+            atol(sql_row[2]),
+            atof(sql_row[3]),
+            atof(sql_row[4]),
+            atof(sql_row[5]),
+            parent_handle
+    );
+}
+
 TimsFrame::TimsFrame(uint32_t _id,
                      uint32_t _num_scans,
                      uint32_t _num_peaks,
@@ -63,7 +103,8 @@ TimsFrame::TimsFrame(uint32_t _id,
     num_peaks(_num_peaks),
     msms_type(_msms_type),
     intensity_correction(_intensity_correction),
-    time(_time)
+    time(_time),
+    dia_group_id(0)
 {}
 
 TimsFrame TimsFrame::TimsFrameFromSql(char** sql_row, TimsDataHandle& parent_handle)
@@ -257,6 +298,66 @@ int tims_sql_callback(void* out, [[maybe_unused]] int cols, char** row, char**)
     return 0;
 }
 
+int tims_scaninfo_sql_callback(void* out, [[maybe_unused]] int cols, char** row, char** colnames)
+{
+    assert(cols == 2);
+    assert(row != NULL);
+    assert(row[0] != NULL);
+    std::string key(row[0]);
+    std::string value(row[1]);
+
+    TimsDataHandle* hndl = reinterpret_cast<TimsDataHandle*>(out);
+
+    if (key == "MzAcqRangeLower") {
+        hndl->_mz_lower = atof(row[1]);
+    }
+
+    if (key == "MzAcqRangeUpper") {
+        hndl->_mz_upper = atof(row[1]);
+    }
+
+    if (key == "OneOverK0AcqRangeLower") {
+        hndl->_one_over_k0_lower = atof(row[1]);
+    }
+
+    if (key == "OneOverK0AcqRangeUpper") {
+        hndl->_one_over_k0_upper = atof(row[1]);
+    }
+    return 0;
+}
+
+int tims_dia_sql_callback(void* out, [[maybe_unused]] int cols, char** row, char** colnames)
+{
+    assert(cols == 6);
+    assert(row != NULL);
+    assert(row[0] != NULL);
+    uint32_t frame_id = atol(row[0]);
+    TimsDataHandle* hndl = reinterpret_cast<TimsDataHandle*>(out);
+    if (hndl->dia_descs.find(frame_id) == hndl->dia_descs.end()) {
+        hndl->dia_descs.emplace(frame_id, std::vector<TimsDiaInfo>());
+    }
+    hndl->dia_descs[frame_id].emplace_back(TimsDiaInfo::TimsDiaInfoFromSql(row, *hndl));
+    // hndl->dia_descs.emplace(frame_id, TimsDiaInfo::TimsDiaInfoFromSql(row, *hndl));
+    return 0;
+}
+
+int tims_dia_frame_sql_callback(void* out, int cols, char** row, char** colnames)
+{
+    assert(cols == 2);
+    assert(row != NULL);
+    assert(row[0] != NULL);
+    assert(row[1] != NULL);   
+    uint32_t frame_id = atol(row[0]);
+    TimsDataHandle* hndl = reinterpret_cast<TimsDataHandle*>(out);
+    if (hndl->has_frame(frame_id)) {
+        hndl->get_frame(frame_id).dia_group_id = atol(row[1]);
+        // frame.dia_group_id = atol(row[1]);
+    }
+   
+    return 0;
+}
+
+
 int check_compression(void*, [[maybe_unused]] int cols, char** row, char**)
 {
     assert(cols == 1);
@@ -321,9 +422,16 @@ void TimsDataHandle::read_sql(const std::string& tims_tdf_path)
 
     const std::string sql = "SELECT Id, NumScans, NumPeaks, MsMsType, AccumulationTime, Time, TimsId from Frames;";
 
+    const std::string sqlScanInfo = "SELECT Key, Value from GlobalMetadata;";
+    const std::string sqlDiaMsMsInfo = "SELECT WindowGroup, ScanNumBegin, ScanNumEnd, IsolationMz, IsolationWidth, CollisionEnergy from DiaFrameMsMsWindows;";
+    const std::string sqlFrameDiaInfo = "SELECT Frame, WindowGroup from DiaFrameMsMsInfo;";
+
+    DB.query(sqlScanInfo, tims_scaninfo_sql_callback, this);
     DB.query(sql, tims_sql_callback, this);
     DB.query("SELECT Value FROM GlobalMetadata WHERE Key == \"TimsCompressionType\";", check_compression, nullptr);
-
+    // TODO readout DiaFrameInfo and scan info
+    DB.query(sqlDiaMsMsInfo, tims_dia_sql_callback, this);
+    DB.query(sqlFrameDiaInfo, tims_dia_frame_sql_callback, this);
     db_conn = DB.release_connection();
 
 #endif
@@ -456,13 +564,17 @@ std::unordered_map<uint32_t, TimsFrame>& TimsDataHandle::get_frame_descs()
     return frame_descs;
 }
 
+std::unordered_map<uint32_t, std::vector<TimsDiaInfo>>& TimsDataHandle::get_dia_descs()
+{
+    return dia_descs;
+}
+
 size_t TimsDataHandle::no_peaks_in_frames(const uint32_t* indexes, size_t no_indexes)
 {
     size_t ret = 0;
     for(size_t ii = 0; ii < no_indexes; ii++)
         ret += frame_descs.at(indexes[ii]).num_peaks;
     return ret;
-
 }
 
 size_t TimsDataHandle::no_peaks_in_slice(uint32_t start, uint32_t end, uint32_t step)

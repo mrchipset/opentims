@@ -74,6 +74,7 @@ int main(int argc, char** argv)
 
     // Obtain frames: as a map frame_id -> frame object
     std::unordered_map<uint32_t, TimsFrame>& frame_desc = TDH.get_frame_descs();
+    std::unordered_map<uint32_t, std::vector<TimsDiaInfo>>& dia_desc = TDH.get_dia_descs();
 
     // Iterate over frames (in order), and output a CSV-formatted data dump
     for(uint32_t idx = TDH.min_frame_id(); idx < TDH.max_frame_id(); idx++)
