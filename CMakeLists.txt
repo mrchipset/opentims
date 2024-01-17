@@ -5,7 +5,6 @@ set(CXX_STANDARD_REQUIRED 17)
 add_definitions(-D_AMD64_)
 
 add_subdirectory(opentims++)
-add_subdirectory(examples)
 
 include_directories(opentims++)
 
