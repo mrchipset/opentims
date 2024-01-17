@@ -245,11 +245,11 @@ private:
 #ifndef OPENTIMS_BUILDING_R
     sqlite3* db_conn;
 #endif
-
-    double _mz_lower;
-    double _mz_upper;
-    double _one_over_k0_lower;
-    double _one_over_k0_upper;
+public:
+    double mz_lower;
+    double mz_upper;
+    double one_over_k0_lower;
+    double one_over_k0_upper;
 public:
     size_t get_decomp_buffer_size() const { return decomp_buffer_size; };
     std::unique_ptr<Tof2MzConverter> tof2mz_converter;

@@ -309,19 +309,19 @@ int tims_scaninfo_sql_callback(void* out, [[maybe_unused]] int cols, char** row,
     TimsDataHandle* hndl = reinterpret_cast<TimsDataHandle*>(out);
 
     if (key == "MzAcqRangeLower") {
-        hndl->_mz_lower = atof(row[1]);
+        hndl->mz_lower = atof(row[1]);
     }
 
     if (key == "MzAcqRangeUpper") {
-        hndl->_mz_upper = atof(row[1]);
+        hndl->mz_upper = atof(row[1]);
     }
 
     if (key == "OneOverK0AcqRangeLower") {
-        hndl->_one_over_k0_lower = atof(row[1]);
+        hndl->one_over_k0_lower = atof(row[1]);
     }
 
     if (key == "OneOverK0AcqRangeUpper") {
-        hndl->_one_over_k0_upper = atof(row[1]);
+        hndl->one_over_k0_upper = atof(row[1]);
     }
     return 0;
 }
@@ -351,7 +351,6 @@ int tims_dia_frame_sql_callback(void* out, int cols, char** row, char** colnames
     TimsDataHandle* hndl = reinterpret_cast<TimsDataHandle*>(out);
     if (hndl->has_frame(frame_id)) {
         hndl->get_frame(frame_id).dia_group_id = atol(row[1]);
-        // frame.dia_group_id = atol(row[1]);
     }
    
     return 0;

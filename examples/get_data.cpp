@@ -5,8 +5,8 @@
 #include <string>
 #include <iostream>
 #include <cstdlib>
-#include "../opentims++/opentims_all.cpp"
-
+// #include "../opentims++/opentims_all.cpp"
+#include "../opentims++/opentims_all.h"
 
 int main(int argc, char** argv)
 {
