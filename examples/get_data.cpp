@@ -82,14 +82,15 @@ int main(int argc, char** argv)
         if(TDH.has_frame(idx))
         {
             TimsFrame& frame = TDH.get_frame(idx);
+            printf("Frame: %d\n", idx);
             frame.save_to_buffs(frame_ids.get(), scan_ids.get(), tofs.get(), intensities.get(), mzs.get(), inv_ion_mobilities.get(), retention_times.get());
-            for(size_t peak_id = 0; peak_id < frame.num_peaks; peak_id++)
+            /*for(size_t peak_id = 0; peak_id < frame.num_peaks; peak_id++)
             {
                 std::cout << frame_ids[peak_id] << "\t" << scan_ids[peak_id] << "\t" << tofs[peak_id] << "\t" << intensities[peak_id] << "\t";
                 if(use_bruker_code)
                     std::cout << mzs[peak_id] << "\t" << inv_ion_mobilities[peak_id] << "\t";
                 std::cout << retention_times[peak_id] << std::endl;
-            }
+            }*/
         }
 
 }

@@ -8,8 +8,12 @@ add_subdirectory(opentims++)
 
 include_directories(opentims++)
 
-add_library(zstd ${SQLITE_SRC})
-add_library(sqlite ${ZSTD_SRC})
+add_definitions(-DSQLITE_CORE)
+add_definitions(-DSQLITE_ENABLE_COLUMN_METADATA)
+add_definitions(-DSQLITE_ENABLE_RTREE)
+
+add_library(sqlite ${SQLITE_SRC})
+add_library(zstd ${ZSTD_SRC})
 
 add_library(libopentims ${OPENTIMS_SRC})
 target_link_libraries(libopentims zstd)
